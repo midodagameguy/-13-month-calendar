@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fixed 13 Event Calendar</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #050505; color: #f8fafc; overflow: hidden; margin: 0; padding: 0; }
+        .glass { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.08); }
+        .day-card { transition: all 0.2s ease; cursor: pointer; }
+        .day-card:hover { background: rgba(255, 255, 255, 0.08); transform: translateY(-1px); }
+        .today-highlight { background: #6366f1; box-shadow: 0 0 20px rgba(99, 102, 241, 0.4); border: 1px solid #818cf8; color: white !important; }
+        .event-dot { width: 4px; height: 4px; background: #10b981; border-radius: 50%; margin-top: 2px; }
+        .modal-enter { animation: modalIn 0.3s ease forwards; }
+        @keyframes modalIn {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4">
+
+    <div class="w-full max-w-md glass rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col relative">
+        
+        <!-- Header -->
+        <div class="p-8 pb-4 flex justify-between items-center">
+            <div class="flex items-center gap-1 bg-white/5 p-1 rounded-xl border border-white/10">
+                <button onclick="changeYear(-1)" class="p-2 hover:bg-white/10 rounded-lg text-white/40 hover:text-white">
+                    <i data-lucide="chevron-left" class="w-4 h-4"></i>
+                </button>
+                <span id="year-label" class="px-2 text-xs font-black tracking-widest text-white/80">2025</span>
+                <button onclick="changeYear(1)" class="p-2 hover:bg-white/10 rounded-lg text-white/40 hover:text-white">
+                    <i data-lucide="chevron-right" class="w-4 h-4"></i>
+                </button>
+            </div>
+            
+            <div class="flex items-center gap-2">
+                <button onclick="toggleGregorian()" id="gregorian-toggle" class="p-2.5 rounded-xl transition-all bg-white/5 text-white/30 border border-white/5 hover:border-white/20">
+                    <i data-lucide="calendar-days" class="w-4 h-4"></i>
+                </button>
+                <button onclick="resetToToday()" class="flex items-center gap-2 bg-indigo-500/10 text-indigo-400 px-4 py-2 rounded-xl border border-indigo-500/20 text-xs font-bold hover:bg-indigo-500/20 transition-all">
+                    <i data-lucide="refresh-cw" class="w-3 h-3"></i> TODAY
+                </button>
+            </div>
+        </div>
+
+        <!-- Month Navigation -->
+        <div class="px-8 pb-6 flex items-center justify-between gap-4">
+            <button onclick="changeMonth(-1)" class="p-3 hover:bg-white/5 rounded-2xl text-white/40 hover:text-white">
+                <i data-lucide="chevron-left" class="w-7 h-7"></i>
+            </button>
+            <div class="text-center flex-1">
+                <h1 id="month-label" class="text-4xl font-black text-white tracking-tight">Month</h1>
+            </div>
+            <button onclick="changeMonth(1)" class="p-3 hover:bg-white/5 rounded-2xl text-white/40 hover:text-white">
+                <i data-lucide="chevron-right" class="w-7 h-7"></i>
+            </button>
+        </div>
+
+        <!-- Calendar Grid -->
+        <div id="view-container" class="px-8 pb-8 min-h-[380px] flex flex-col justify-center"></div>
+
+        <!-- Status Bar -->
+        <div class="px-8 py-5 bg-white/[0.02] border-t border-white/5 flex items-center justify-between">
+            <div class="flex items-center gap-3 text-white/40">
+                <i data-lucide="info" class="w-3 h-3"></i>
+                <span class="text-[9px] font-bold uppercase tracking-widest">Tap to manage events</span>
+            </div>
+            <div id="status-text" class="text-[10px] font-black text-white/40 uppercase tracking-widest">Live</div>
+        </div>
+
+        <!-- Event Modal -->
+        <div id="event-modal" class="hidden absolute inset-0 z-50 flex items-end justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <div class="glass w-full max-w-sm rounded-3xl p-6 modal-enter shadow-2xl mb-4">
+                <div class="flex justify-between items-start mb-4">
+                    <div>
+                        <h3 id="modal-date-title" class="text-lg font-bold">Add Event</h3>
+                        <p id="modal-date-sub" class="text-[10px] text-white/40 uppercase font-bold tracking-widest"></p>
+                    </div>
+                    <button onclick="closeModal()" class="bg-white/5 p-2 rounded-full text-white/40 hover:text-white">
+                        <i data-lucide="x" class="w-5 h-5"></i>
+                    </button>
+                </div>
+                
+                <div id="event-list" class="space-y-2 mb-6 max-h-40 overflow-y-auto pr-2"></div>
+
+                <div class="flex gap-2 bg-white/5 p-1 rounded-2xl border border-white/10">
+                    <input type="text" id="event-input" placeholder="What's happening?" 
+                           class="flex-1 bg-transparent border-none px-4 py-2 text-sm focus:outline-none placeholder:text-white/20">
+                    <button onclick="saveEvent()" class="bg-indigo-600 hover:bg-indigo-500 px-5 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all">
+                        SAVE
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const monthNames = ["January", "February", "March", "April", "May", "June", "Sol", "July", "August", "September", "October", "November", "December"];
+        const daysOfWeek = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+        let viewYear = new Date().getFullYear();
+        let viewMonthIdx = 0;
+        let selectedDayKey = null;
+        let showGregorian = localStorage.getItem('fixed-13-gregorian') === 'true';
+
+        let events = JSON.parse(localStorage.getItem('fixed-13-events')) || {};
+
+        function isLeapYear(year) {
+            return (year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0));
+        }
+
+        function getFixedStats(date) {
+            const year = date.getFullYear();
+            const start = new Date(year, 0, 0);
+            const diff = date - start;
+            const dayOfYear = Math.floor(diff / (1000 * 60 * 60 * 24));
+            const leap = isLeapYear(year);
+            const totalDays = leap ? 366 : 365;
+
+            if (dayOfYear === totalDays) return { type: 'YEAR_DAY', label: 'Year Day' };
+            if (leap && dayOfYear === 169) return { type: 'LEAP_DAY', label: 'Leap Day' };
+
+            let adjustedDay = dayOfYear;
+            if (leap && dayOfYear > 169) adjustedDay -= 1;
+
+            const mIdx = Math.floor((adjustedDay - 1) / 28);
+            const dNum = ((adjustedDay - 1) % 28) + 1;
+            return { type: 'STANDARD', monthIdx: mIdx, dayNum: dNum, label: `${monthNames[mIdx]} ${dNum}` };
+        }
+
+        function getGregorianMapping(mIdx, dNum, year) {
+            const leap = isLeapYear(year);
+            let totalDays = (mIdx * 28) + dNum;
+            if (leap && totalDays >= 169) totalDays += 1;
+            const date = new Date(year, 0, 0);
+            date.setDate(date.getDate() + totalDays);
+            return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+        }
+
+        function toggleGregorian() {
+            showGregorian = !showGregorian;
+            localStorage.setItem('fixed-13-gregorian', showGregorian);
+            render();
+        }
+
+        function openModal(monthIdx, dayNum) {
+            selectedDayKey = `${viewYear}-${monthIdx}-${dayNum}`;
+            const title = monthIdx >= 13 ? (monthIdx == 13 ? 'Year Day' : 'Leap Day') : `${monthNames[monthIdx]} ${dayNum}`;
+            document.getElementById('modal-date-title').innerText = title;
+            document.getElementById('modal-date-sub').innerText = `FIXED 13 CALENDAR • ${viewYear}`;
+            document.getElementById('event-modal').classList.remove('hidden');
+            updateEventList();
+            document.getElementById('event-input').focus();
+        }
+
+        function closeModal() {
+            document.getElementById('event-modal').classList.add('hidden');
+            selectedDayKey = null;
+        }
+
+        function saveEvent() {
+            const input = document.getElementById('event-input');
+            const val = input.value.trim();
+            if (!val) return;
+            if (!events[selectedDayKey]) events[selectedDayKey] = [];
+            events[selectedDayKey].push(val);
+            localStorage.setItem('fixed-13-events', JSON.stringify(events));
+            input.value = '';
+            updateEventList();
+            render();
+        }
+
+        function deleteEvent(idx) {
+            events[selectedDayKey].splice(idx, 1);
+            if (events[selectedDayKey].length === 0) delete events[selectedDayKey];
+            localStorage.setItem('fixed-13-events', JSON.stringify(events));
+            updateEventList();
+            render();
+        }
+
+        function updateEventList() {
+            const list = document.getElementById('event-list');
+            const dayEvents = events[selectedDayKey] || [];
+            list.innerHTML = dayEvents.map((e, i) => `
+                <div class="flex justify-between items-center bg-white/5 p-4 rounded-2xl border border-white/5 group">
+                    <span class="text-sm font-medium">${e}</span>
+                    <button onclick="deleteEvent(${i})" class="text-red-400/60 hover:text-red-400">
+                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                    </button>
+                </div>
+            `).join(dayEvents.length ? '' : '<p class="text-center text-white/20 py-8 text-xs italic font-medium tracking-wide">No events for this date</p>');
+            lucide.createIcons();
+        }
+
+        function changeMonth(delta) {
+            const leap = isLeapYear(viewYear);
+            if (viewMonthIdx === 5 && delta === 1 && leap) viewMonthIdx = 14;
+            else if (viewMonthIdx === 14 && delta === 1) viewMonthIdx = 6;
+            else if (viewMonthIdx === 14 && delta === -1) viewMonthIdx = 5;
+            else if (viewMonthIdx === 6 && delta === -1 && leap) viewMonthIdx = 14;
+            else {
+                viewMonthIdx += delta;
+                if (viewMonthIdx > 13) { viewMonthIdx = 0; viewYear++; }
+                else if (viewMonthIdx < 0) { viewMonthIdx = 13; viewYear--; }
+            }
+            render();
+        }
+
+        function changeYear(delta) {
+            viewYear += delta;
+            render();
+        }
+
+        function resetToToday() {
+            const today = new Date();
+            const stats = getFixedStats(today);
+            viewYear = today.getFullYear();
+            if (stats.type === 'YEAR_DAY') viewMonthIdx = 13;
+            else if (stats.type === 'LEAP_DAY') viewMonthIdx = 14;
+            else viewMonthIdx = stats.monthIdx;
+            render();
+        }
+
+        function render() {
+            const container = document.getElementById('view-container');
+            const monthLabel = document.getElementById('month-label');
+            const yearLabel = document.getElementById('year-label');
+            const statusText = document.getElementById('status-text');
+            const toggleBtn = document.getElementById('gregorian-toggle');
+
+            yearLabel.innerText = viewYear;
+            toggleBtn.className = showGregorian 
+                ? "p-2.5 rounded-xl transition-all bg-indigo-500/20 text-indigo-400 border border-indigo-500/20 shadow-[0_0_10px_rgba(99,102,241,0.2)]" 
+                : "p-2.5 rounded-xl transition-all bg-white/5 text-white/30 border border-white/5 hover:border-white/20";
+
+            const today = new Date();
+            const todayStats = getFixedStats(today);
+            const isTodayYear = viewYear === today.getFullYear();
+            statusText.innerText = `NOW: ${todayStats.label}`;
+
+            if (viewMonthIdx >= 13) {
+                const isYD = viewMonthIdx === 13;
+                const dKey = `${viewYear}-${viewMonthIdx}-0`;
+                const hasEvents = events[dKey] && events[dKey].length > 0;
+                monthLabel.innerText = isYD ? "Year Day" : "Leap Day";
+                container.innerHTML = `
+                    <div onclick="openModal(${viewMonthIdx}, 0)" class="py-10 flex flex-col items-center justify-center space-y-6 cursor-pointer group">
+                        <div class="relative">
+                            <div class="absolute inset-0 ${isYD ? 'bg-indigo-500' : 'bg-emerald-500'} blur-3xl opacity-20"></div>
+                            <div class="relative w-32 h-32 bg-gradient-to-br ${isYD ? 'from-indigo-500 to-purple-600' : 'from-emerald-500 to-teal-600'} rounded-full flex items-center justify-center shadow-2xl group-hover:scale-105 transition-transform duration-300">
+                                <i data-lucide="${isYD ? 'zap' : 'star'}" class="w-14 h-14 text-white fill-white/20"></i>
+                            </div>
+                            ${hasEvents ? '<div class="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-emerald-500 text-[10px] font-black px-4 py-1.5 rounded-full text-black shadow-xl tracking-tighter">EVENT LOGGED</div>' : ''}
+                        </div>
+                        <div class="text-center">
+                            <h2 class="text-2xl font-black text-white mb-2 uppercase tracking-tighter">${isYD ? "Year End" : "Leap Mid"}</h2>
+                            <p class="text-white/40 text-[10px] font-bold uppercase tracking-[0.2em]">${showGregorian ? (isYD ? 'Dec 31' : 'Jun 17') : 'Intercalary'}</p>
+                        </div>
+                    </div>
+                `;
+            } else {
+                monthLabel.innerText = monthNames[viewMonthIdx];
+                let gridHtml = `
+                    <div class="grid grid-cols-7 gap-1 mb-4">
+                        ${daysOfWeek.map(d => `<div class="text-[10px] font-black text-white/20 uppercase text-center py-2 tracking-tighter">${d}</div>`).join('')}
+                    </div>
+                    <div class="grid grid-cols-7 gap-2">
+                `;
+                for (let i = 1; i <= 28; i++) {
+                    const dKey = `${viewYear}-${viewMonthIdx}-${i}`;
+                    const isToday = isTodayYear && todayStats.type === 'STANDARD' && todayStats.monthIdx === viewMonthIdx && todayStats.dayNum === i;
+                    const hasEvents = events[dKey] && events[dKey].length > 0;
+                    gridHtml += `
+                        <div onclick="openModal(${viewMonthIdx}, ${i})" class="day-card aspect-square flex flex-col items-center justify-center rounded-2xl border ${isToday ? 'today-highlight' : 'bg-white/[0.02] border-white/[0.05] text-white/80'}">
+                            <span class="text-sm font-black">${i}</span>
+                            ${showGregorian ? `<span class="text-[7px] mt-0.5 font-bold uppercase ${isToday ? 'text-white/60' : 'text-white/20'}">${getGregorianMapping(viewMonthIdx, i, viewYear)}</span>` : ''}
+                            ${hasEvents ? '<div class="event-dot mt-0.5"></div>' : ''}
+                        </div>
+                    `;
+                }
+                gridHtml += `</div>`;
+                container.innerHTML = gridHtml;
+            }
+            lucide.createIcons();
+        }
+
+        // Ensuring we start with a clean slate for the app
+        window.onload = function() {
+            resetToToday();
+        };
+    </script>
+</body>
+</html>
